@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCAT VR Practice - MedwithPurpose</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* Custom styles for better UI/UX */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling on body */
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- REDESIGNED THEMES --- */
+        .theme-background {
+            background-color: #f0f2f5;
+        }
+
+        #setup-screen, #results-screen {
+            background: linear-gradient(170deg, #c7d2fe 0%, #f0f2f5 50%, #b0bec5 100%);
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+        }
+
+        .primary-button-new {
+            background-image: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+        }
+        .primary-button-new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+            background-image: linear-gradient(135deg, #4338ca, #4f46e5);
+        }
+
+        .secondary-button-new {
+            background-color: transparent;
+            color: #4353ff;
+            border: 1px solid #4353ff;
+            transition: all 0.3s ease;
+             font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+        }
+        .secondary-button-new:hover {
+            background-color: rgba(67, 83, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        input.themed-input {
+            background-color: #f0f2f5;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
+        }
+        input.themed-input:focus {
+            border-color: #4353ff;
+            box-shadow: 0 0 0 2px rgba(67, 83, 255, 0.2);
+            outline: none;
+        }
+
+        /* --- Original Test Environment Styles --- */
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 2rem);
+            width: 100%;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 0.375rem;
+            margin: 1rem;
+            overflow: hidden;
+        }
+        .header-bar, .footer-bar {
+            flex-shrink: 0;
+            background-color: #006DAA;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-bar span, .header-bar div { color: white; }
+        #timer { background-color: rgba(255, 255, 255, 0.2); color: white; font-weight: bold; padding: 0.25rem 0.75rem; border-radius: 0.25rem; }
+        .footer-bar button, .font-size-button { background-color: transparent; color: white; border: 1px solid rgba(255, 255, 255, 0.5); padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 0.375rem; transition: background-color 0.2s ease, border-color 0.2s ease; }
+        .font-size-button { padding: 0.2rem 0.6rem; font-weight: bold; line-height: 1.25; }
+        .footer-bar button:hover:not(:disabled), .font-size-button:hover:not(:disabled) { background-color: rgba(255, 255, 255, 0.15); border-color: white; }
+        .footer-bar button:disabled { opacity: 0.5; cursor: not-allowed; border-color: rgba(255, 255, 255, 0.3); }
+        .footer-bar button#next-button { background-color: #ffffff; color: #006DAA; border: 1px solid white; font-weight: 500; }
+        .footer-bar button#next-button:hover:not(:disabled) { background-color: #f0f0f0; }
+        #flag-button { background-color: transparent; border: 1px solid white; color: white; transition: background-color 0.2s ease, color 0.2s ease; }
+        #flag-button:hover { background-color: white; color: #006DAA; }
+        #flag-button.flagged { background-color: #facc15; border-color: #facc15; color: #422006; }
+        #flag-button.flagged:hover { background-color: #f59e0b; border-color: #f59e0b; }
+
+        .main-content-area { flex-grow: 1; display: flex; overflow: hidden; padding: 1rem; gap: 1rem; }
+        
+        /* UPDATED: Column widths changed to 60/40 split */
+        .passage-column {
+            flex: 0 0 60%;
+            overflow-y: auto; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: #ffffff; height: 100%; transition: font-size 0.2s ease;
+        }
+        .question-column {
+            flex: 0 0 40%;
+            overflow-y: auto; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: #ffffff; height: 100%; transition: font-size 0.2s ease;
+            position: relative;
+        }
+
+        .selected-answer { background-color: #bfdbfe !important; border-color: #3b82f6 !important; }
+        .nav-answered { background-color: #a7f3d0; }
+        .nav-current { border: 2px solid #3b82f6 !important; font-weight: bold; }
+        .nav-flagged, .review-flagged { border: 2px solid #f59e0b !important; position: relative; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; }
+        .modal.flex { display: flex; }
+
+        .option-label { display: block; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.375rem; margin-bottom: 0.5rem; cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease; background-color: #ffffff; color: #111827; }
+        .option-label:hover:not(.selected-answer) { background-color: #f3f4f6; border-color: #a5b4fc; }
+        input[type="radio"] { display: none; }
+        .resizable-text { font-size: 1rem; }
+
+        .explanation-box { background-color: #f3f4f6; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; margin-top: 0.75rem; border-radius: 0.375rem; color: #111827; }
+
+        .review-grid-button { padding: 0.5rem 0.25rem; border: 1px solid #d1d5db; border-radius: 0.375rem; text-align: center; transition: background-color 0.2s ease, border-color 0.2s ease; font-size: 0.875rem; line-height: 1.25rem; cursor: pointer; }
+        .review-grid-button-answered { background-color: #dcfce7; border-color: #86efac; color: #15803d; }
+        .review-grid-button-unanswered { background-color: #f3f4f6; border-color: #d1d5db; color: #4b5563; }
+        .review-grid-button:hover { filter: brightness(95%); }
+
+        /* Results Screen Grid */
+        #results-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 0.75rem; padding: 1rem 0; width: 100%; }
+        .result-box { display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1 / 1; padding: 0.25rem; border-radius: 0.5rem; color: white; text-align: center; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: auto; border: none; }
+        .result-box:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        
+        .result-box-correct {
+            background: linear-gradient(145deg, #22c55e, #15803d);
+        }
+        .result-box-incorrect {
+            background: linear-gradient(145deg, #ef4444, #b91c1c);
+        }
+        .result-box-flagged { outline: 3px solid #f59e0b; outline-offset: 2px; }
+        .result-box .time-spent { font-size: 1rem; font-weight: 600; line-height: 1.1; }
+        .question-num-label { font-size: 0.75rem; color: #4b5563; text-align: center; width: 100%; margin-top: 0.25rem; }
+
+        @media (max-width: 768px) {
+            #app-container { height: auto; margin: 0.5rem; }
+            .main-content-area { flex-direction: column; padding: 0.5rem; gap: 0.5rem; }
+            .passage-column, .question-column { flex-basis: auto; width: 100%; } /* Reverts to block-level stacking on mobile */
+            .header-bar, .footer-bar { padding: 0.5rem 1rem; }
+            .header-bar span, .footer-bar button, .font-size-button { font-size: 0.8rem; }
+            #review-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    </head>
+<body class="theme-background">
+
+    <div id="app-container" class="!border-none !shadow-none !m-0 !rounded-none">
+
+        <div id="setup-screen" class="p-4 md:p-8 flex flex-col justify-center items-center h-full w-full">
+            <div class="w-full max-w-lg text-center">
+                <img src="https://ik.imagekit.io/mwp/MWP%20Color%20no%20background.png?updatedAt=1745982959141"
+                     alt="MedwithPurpose Logo"
+                     class="mx-auto h-24 w-auto mb-6"
+                     onerror="this.style.display='none'; this.onerror=null;">
+                <div class="card p-8 md:p-10">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Verbal Reasoning Practice</h1>
+                    <p class="text-gray-600 mt-2 text-lg mb-8">Sharpen your skills for the UCAT VR section.</p>
+                    <div class="text-left space-y-3 mb-8 bg-blue-50/50 border border-blue-200/50 rounded-lg p-4">
+                        <p class="text-sm text-gray-800"><strong class="font-semibold">Questions:</strong> <span id="setup-question-count">16</span></p>
+                        <p class="text-sm text-gray-800"><strong class="font-semibold">Time Limit:</strong> <span id="setup-time-limit">9 minutes</span></p>
+                    </div>
+
+                    <div class="space-y-6 text-left">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" id="name" name="name" class="themed-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Enter your name">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="goal" class="block text-sm font-medium text-gray-700 mb-1">Score Goal</label>
+                                <input type="number" id="goal" name="goal" min="0" max="16" class="themed-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm" placeholder="e.g., 12">
+                            </div>
+                            <div>
+                                <label for="focus-area" class="block text-sm font-medium text-gray-700 mb-1">Practice Intention</label>
+                                <input type="text" id="focus-area" name="focus-area" class="themed-input mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm" placeholder="e.g., Speed, Accuracy">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-10">
+                        <button id="start-button" class="primary-button-new w-full text-lg">
+                            Start Exam
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="exam-screen" class="hidden flex flex-col h-full">
+            <div class="header-bar">
+                <span id="exam-title" class="font-semibold">Verbal Reasoning</span>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <button id="font-decrease-button" class="font-size-button">A-</button>
+                        <button id="font-increase-button" class="font-size-button">A+</button>
+                    </div>
+                    <div id="timer" class="text-base px-3 py-1 rounded-md">9:00</div>
+                    <span class="text-sm">Question <span id="question-number-info">1</span> of 16</span>
+                    <button id="flag-button" class="text-sm font-medium border border-white rounded px-2 py-1 transition-colors duration-150">
+                         Flag for Review
+                    </button>
+                </div>
+            </div>
+            <div class="main-content-area">
+                <div class="passage-column resizable-text">
+                    <h3 class="text-lg font-semibold mb-2 sticky top-0 bg-white text-gray-900 pb-1">Passage <span id="passage-number">1</span></h3>
+                    <div id="passage-text" class="text-base text-gray-900 leading-relaxed whitespace-pre-wrap"></div>
+                </div>
+                <div class="question-column resizable-text">
+                     <h4 class="text-md font-semibold mb-3 sticky top-0 bg-white text-gray-900 pb-1">Question <span id="question-number">1</span></h4>
+                    <p id="question-text" class="mb-4 text-gray-900"></p>
+                    <div id="options-container" class="space-y-2"></div>
+                    <div id="review-explanation-container"></div>
+                </div>
+            </div>
+            <div class="footer-bar">
+                <button id="back-to-results-button" class="hidden mr-auto">← Back to Results</button>
+                <button id="end-exam-button-footer">End Exam</button>
+                <div class="flex items-center space-x-2 ml-auto">
+                    <button id="prev-button" disabled>← Previous (Alt+P)</button>
+                    <button id="navigator-button">Navigator</button>
+                    <button id="next-button">Next (Alt+N) →</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="review-screen" class="hidden p-6 md:p-8 flex-col items-center h-full overflow-y-auto bg-gray-50">
+             <div class="w-full max-w-3xl mb-4 flex justify-between items-center">
+                 <h2 class="text-2xl font-bold text-gray-900">Review Your Answers</h2> <button id="filter-flagged-button" class="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-100">Show Flagged Only</button>
+            </div>
+             <p class="text-center text-gray-600 mb-6">Click on a question number to review it. Green indicates answered, Yellow border indicates flagged.</p>
+             <div id="review-grid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-10 gap-3 mb-6 w-full max-w-3xl"></div>
+            <div class="mt-auto pt-6">
+                <button id="end-exam-button" class="bg-red-600 text-white hover:bg-red-700 text-lg px-8 py-3 rounded-md">
+                    End Exam & See Results
+                </button>
+            </div>
+        </div>
+
+
+        <div id="results-screen" class="hidden p-4 md:p-8 flex-col h-full overflow-y-auto w-full">
+            <div class="w-full max-w-4xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Exam Results</h2>
+                    <p class="text-gray-600 mt-2">Here's a breakdown of your performance.</p>
+                </div>
+
+                <div class="card p-8 mb-8 text-center">
+                    <p class="text-lg text-gray-600 mb-2">Your Score</p>
+                    <p class="text-6xl font-bold text-gray-900"><span id="score">0</span><span class="text-4xl text-gray-500"> / <span id="total-questions-results">16</span></span></p>
+                    <div class="mt-4 h-1 w-24 bg-indigo-200 mx-auto rounded-full"></div>
+                    <p class="mt-4 text-md text-gray-500">Time Taken: <span id="time-taken" class="font-semibold"></span></p>
+                </div>
+
+                <div class="grid md:grid-cols-5 gap-8 mb-8">
+                    <div class="md:col-span-2 space-y-8">
+                        <div class="card p-6">
+                            <h4 class="text-lg font-semibold mb-3 text-center text-gray-800">Time Analysis</h4>
+                            <div id="time-analysis-results" class="space-y-2 text-sm text-gray-600"></div>
+                        </div>
+                        <div class="card p-6">
+                            <h4 class="text-lg font-semibold mb-3 text-center text-gray-800">Performance by Type</h4>
+                            <div id="type-analysis-results" class="space-y-2 text-sm text-gray-600"></div>
+                        </div>
+                    </div>
+                    <div class="md:col-span-3 card p-6">
+                         <h3 class="text-lg font-semibold mb-1 text-gray-800">Detailed Results</h3>
+                         <p class="text-sm text-gray-500 mb-4">Click a box to review the question.</p>
+                         <div id="results-grid-container"></div>
+                    </div>
+                </div>
+
+                <div class="card p-8 mb-8">
+                    <h3 class="text-xl font-semibold mb-6 text-gray-800">Reflection</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <label for="reflection-q1" class="block text-md font-semibold text-gray-700 mb-2">Which question type was most challenging, and why?</label>
+                            <textarea id="reflection-q1" rows="3" class="themed-input block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm" placeholder="e.g., Inference questions were tricky because..."></textarea>
+                        </div>
+                        <div>
+                            <label for="reflection-q2" class="block text-md font-semibold text-gray-700 mb-2">Which question took you the longest, and why?</label>
+                            <textarea id="reflection-q2" rows="3" class="themed-input block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm" placeholder="e.g., Question 7 took a while because I had to re-read the passage..."></textarea>
+                        </div>
+                        <div>
+                            <label for="reflection-q3" class="block text-md font-semibold text-gray-700 mb-2">Did you stick to your 'Practice Intention'? If not, what distracted you?</label>
+                            <textarea id="reflection-q3" rows="3" class="themed-input block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm" placeholder="I wanted to focus on speed, but got bogged down in the details..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center flex justify-center items-center space-x-4">
+                    <button onclick="window.location.reload()" class="secondary-button-new">
+                        Try Again
+                    </button>
+                    <button id="download-pdf-button" class="primary-button-new">
+                        Download Results PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="navigator-modal" class="modal">
+            <div class="modal-content bg-white p-6 rounded-lg shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900">Question Navigator</h3> <button id="close-modal-button" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+                </div>
+                 <p class="text-sm text-gray-600 mb-4">Click a number to jump. Green: answered, Yellow border: flagged.</p>
+                 <div id="navigator-grid" class="grid grid-cols-5 gap-3"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Data & State ---
+        const passages = [
+            `Essendon's recurring soft tissue injuries represent more than a medical crisis-they expose the contradictions inherent in modern sports science. Despite employing cutting-edge biomechanical analysis, GPS tracking, and individualized loading programs, the club's injury list grows longer each season. This paradox suggests that our technological sophistication may be obscuring rather than illuminating the problem's true nature.\nThe club's response reveals institutional thinking trapped between competing paradigms. Management simultaneously pursues high-performance methods borrowed from European soccer while maintaining traditional AFL training volumes. Players' bodies become sites of ideological conflict, torn between old-school resilience narratives and new-age recovery protocols. When James Hird defended grueling preseasons as "character building," he articulated a worldview where physical breakdown signifies moral strength-a philosophy fundamentally incompatible with contemporary injury prevention.\nPerhaps most tellingly, Essendon's soft tissue epidemic coincides with the supplements saga's aftermath. While correlation doesn't imply causation, the temporal relationship suggests something deeper: institutional trauma manifesting through physical vulnerability. Trust, once broken between players and medical staff, creates compensatory movement patterns more damaging than any training drill. Athletes who doubt their body's integrity unconsciously guard against phantom threats, creating the very tensions that precipitate injury.\nThe solution may lie not in more sophisticated monitoring but in acknowledging what metrics cannot capture: the psychosomatic unity of athletic performance. Soft tissue injuries at Essendon aren't merely biomechanical failures but symptoms of an organization struggling to reconcile its past with present demands. Until the club addresses this deeper incoherence, no amount of sports science will prevent bodies from bearing the weight of institutional dysfunction.`,
+            `The mycelium network's true significance lies not in what it does, but in what it reveals about intelligence itself. These fungal threads, forming vast underground webs beneath forest floors, challenge our most basic assumptions about consciousness, communication, and cooperation. When trees share nutrients through mycorrhizal networks, they demonstrate that survival's highest expression isn't competition but radical interdependence.\nScientists initially dismissed the "wood wide web" as mere nutrient exchange-a biological marketplace where fungi trade minerals for sugars. This mechanistic interpretation misses the profound implications. Mother trees nurturing saplings through fungal networks aren't executing genetic programming but participating in something approaching forest-wide consciousness. The mycelium doesn't simply connect; it computes, allocating resources based on collective need rather than individual advantage.\nConsider how this reframes evolutionary theory. Darwin's "survival of the fittest" presupposed discrete organisms competing for limited resources. Yet forests thrive through mycelial gift economies where the fittest are those most deeply integrated into networks of mutual aid. The dying tree that dumps its carbon reserves into the fungal network isn't failing but succeeding-ensuring forest continuity transcends individual mortality.\nPerhaps most unsettling for human exceptionalism, mycelial networks process information without centralized control. No fungal CEO dictates resource allocation; no neural command center coordinates responses. Intelligence emerges from the network itself-a possibility that threatens our brain-centric, individual-focused worldview. As climate change accelerates, these networks offer both practical solutions and philosophical challenges. They suggest resilience comes not from strength but from surrendering the illusion of separateness that defines modern human existence.`,
+            `The body keeps the score, but neuroscience is only beginning to decipher its accounting methods. Recent discoveries about trauma's somatic storage challenge the Cartesian split between mind and body that has dominated Western medicine. When trauma survivors report feeling memories "in their bones," they aren't speaking metaphorically-they're describing measurable physiological reality that conventional psychiatry has systematically ignored.\nThe revolution began with van der Kolk's observation that talk therapy often fails trauma survivors. Words cannot reach what words didn't create. Traumatic experiences bypass the brain's linguistic centers, encoding directly into autonomic nervous responses, muscular tension patterns, and fascial restrictions. The body develops its own memory system-one that speaks through chronic pain, digestive issues, and inexplicable fatigue rather than conscious recollection.\nThis understanding transforms treatment possibilities. Body-based interventions-EMDR, somatic experiencing, therapeutic yoga-succeed where cognitive approaches fail because they address trauma in its native language. When a client's shoulders spontaneously drop during breathwork, they're not just relaxing; they're releasing hypervigilance patterns potentially held for decades. The body simultaneously stores and holds the key to its own healing.\nYet mainstream medicine resists these implications, clinging to pharmaceutical solutions for what are essentially embodied experiences. This resistance isn't merely scientific conservatism but reflects deeper anxieties about professional authority. If trauma lives in tissues accessible through movement and touch, what happens to psychiatry's monopoly on mental health? The discovery that massage therapists might access trauma that psychiatrists cannot threatens established hierarchies. As research accumulates, however, the evidence becomes undeniable: healing trauma requires reuniting the mind-body split that trauma itself created.`,
+            `Priming's true power lies not in its effects but in what it reveals about the illusion of autonomous will. When subjects walk more slowly after reading words associated with elderly people, they demonstrate that human behavior operates less like conscious choice and more like environmental resonance. This phenomenon doesn't merely influence performance-it fundamentally questions who or what is performing.\nThe corporate world's embrace of priming techniques-from color-coded offices to strategic scent marketing-represents capitalism's latest colonization of the unconscious. Yet this manipulation succeeds precisely because it aligns with how humans naturally function. We are always already primed by countless environmental cues; commercial priming simply systematizes what culture does automatically. The ethical question isn't whether to prime but who controls the priming apparatus.\nConsider athletic performance enhancement through priming. When basketball players improve free-throw accuracy after visualizing success, they're not accessing mystical powers but demonstrating consciousness's extended nature. The mind doesn't stop at the skull-it bleeds into environment, expectations, and social fields. Priming works because the boundary between self and world is far more porous than individualistic ideology suggests.\nMost profoundly, priming research reveals performance itself as collaborative fiction. The "individual" who performs is always already a collection of internalized voices, cultural scripts, and environmental influences. When priming improves performance, it doesn't enhance some core self but rather optimizes the assemblage of factors that constitute temporary selfhood. This recognition offers both liberation and vertigo: liberation from the tyranny of believing we must generate excellence from some internal reservoir, vertigo from recognizing how thoroughly we are constructed by forces beyond our control.`
+        ];
+        const questions = [
+            { passageIndex: 0, type: 'Inference', text: "The author suggests that Essendon's injury problems primarily stem from:", options: ["Inadequate sports science technology and monitoring systems", "Fundamental conflicts between different training philosophies and organizational trauma", "Players' unwillingness to follow modern recovery protocols", "Excessive training volumes compared to other AFL clubs"], correctAnswer: "B", explanation: "The passage explicitly identifies 'institutional thinking trapped between competing paradigms' and later connects injuries to 'institutional trauma' and 'organizational dysfunction.'" },
+            { passageIndex: 0, type: 'Conclusion', text: "The reference to the 'supplements saga' serves to:", options: ["Blame past administrators for current problems", "Explain the scientific causes of soft tissue injuries", "Illustrate how institutional trust issues may manifest physically", "Advocate for better supplement programs"], correctAnswer: "C", explanation: "The author writes 'institutional trauma manifesting through physical vulnerability' and describes how broken trust 'creates compensatory movement patterns.'" },
+            { passageIndex: 0, type: 'Conclusion', text: "According to the passage, James Hird's comments about 'character building' represent:", options: ["An outdated philosophy incompatible with injury prevention", "The correct approach to building player resilience", "A misunderstanding of European training methods", "The primary cause of Essendon's injury crisis"], correctAnswer: "A", explanation: "The passage directly states this philosophy is 'fundamentally incompatible with contemporary injury prevention.'" },
+            { passageIndex: 0, type: 'Inference', text: "The author's proposed solution suggests that:", options: ["Essendon needs more advanced biomechanical technology", "The club should abandon traditional AFL training methods entirely", "Physical injuries cannot be separated from organizational psychology", "Sports science has no value in preventing injuries"], correctAnswer: "C", explanation: "The conclusion advocates for 'acknowledging what metrics cannot capture: the psychosomatic unity of athletic performance.'" },
+            { passageIndex: 1, type: 'Conclusion', text: "The author's main argument about mycelial networks centers on:", options: ["Their efficiency in nutrient distribution between plants", "Their challenge to conventional notions of intelligence and individuality", "Their potential applications in fighting climate change", "Their similarity to human neural networks"], correctAnswer: "B", explanation: "The opening states the network's significance is 'what it reveals about intelligence itself' and later discusses how it 'challenges our most basic assumptions.'" },
+            { passageIndex: 1, type: 'Inference', text: "The phrase 'biological marketplace' is presented as:", options: ["An accurate description of fungal-plant interactions", "The most recent scientific understanding of mycelial networks", "An overly reductive interpretation that misses deeper implications", "A metaphor that explains forest consciousness"], correctAnswer: "C", explanation: "The text calls this interpretation 'mechanistic' and says it 'misses the profound implications.'" },
+            { passageIndex: 1, type: 'Conclusion', text: "According to the passage, mycelial networks challenge Darwin's theory by:", options: ["Proving that evolution doesn't occur in forests", "Showing that cooperation, not competition, drives forest survival", "Demonstrating that fungi are more evolved than trees", "Revealing that natural selection is completely false"], correctAnswer: "B", explanation: "The passage explicitly states forests 'thrive through mycelial gift economies' rather than competition, reframing 'survival of the fittest.'" },
+            { passageIndex: 1, type: 'Inference', text: "The author suggests that humans find mycelial intelligence 'unsettling' because:", options: ["It operates without centralized control or individual boundaries", "Fungi might be more intelligent than humans", "It threatens forest ecosystems", "It cannot be scientifically measured"], correctAnswer: "A", explanation: "The passage specifically identifies the unsettling aspect as 'networks process information without centralized control.'" },
+            { passageIndex: 2, type: 'Conclusion', text: "The passage suggests that traditional talk therapy fails trauma survivors because:", options: ["Therapists lack proper training in trauma treatment", "Survivors are unwilling to discuss their experiences", "Traumatic memories bypass linguistic processing and embed in the body", "Words are inherently inadequate for expressing emotions"], correctAnswer: "C", explanation: "The passage states 'Words cannot reach what words didn't create' and explains trauma 'bypass[es] the brain's linguistic centers.'" },
+            { passageIndex: 2, type: 'Conclusion', text: "The author presents body-based interventions as successful because they:", options: ["Are more scientifically validated than traditional therapy", "Address trauma in its physiological rather than verbal form", "Require less time than conventional treatment", "Avoid the need to recall traumatic memories"], correctAnswer: "B", explanation: "Body-based interventions succeed 'because they address trauma in its native language.'" },
+            { passageIndex: 2, type: 'Conclusion', text: "According to the passage, mainstream medicine's resistance to somatic approaches stems from:", options: ["Lack of scientific evidence for body-based treatments", "Concerns about professional authority and established hierarchies", "The higher cost of alternative therapies", "Safety concerns about physical interventions"], correctAnswer: "B", explanation: "The text explicitly states resistance 'reflects deeper anxieties about professional authority' and mentions threats to 'established hierarchies.'" },
+            { passageIndex: 2, type: 'Inference', text: "The phrase 'The body keeps the score' in the opening sentence implies:", options: ["Physical fitness prevents trauma", "The body maintains a precise record of traumatic experiences", "Trauma can be measured through medical tests", "Bodies are more important than minds"], correctAnswer: "B", explanation: "The passage indicates survivors aren't 'speaking metaphorically' about bodily memories but describing 'measurable physiological reality.'" },
+            { passageIndex: 3, type: 'Conclusion', text: "The author's central claim about priming suggests that it:", options: ["Represents a simple technique for performance improvement", "Reveals the fictional nature of autonomous individual will", "Should be banned from corporate environments", "Only works on people who believe in it"], correctAnswer: "B", explanation: "The opening sentence directly states priming reveals 'the illusion of autonomous will.'" },
+            { passageIndex: 3, type: 'Conclusion', text: "The passage presents corporate use of priming as:", options: ["An unethical manipulation that should be regulated", "A natural extension of how human consciousness already operates", "More effective than traditional management techniques", "A temporary trend in business practice"], correctAnswer: "B", explanation: "The passage states manipulation 'succeeds precisely because it aligns with how humans naturally function.'" },
+            { passageIndex: 3, type: 'Inference', text: "According to the author, priming's effectiveness in athletics demonstrates:", options: ["The power of positive thinking", "That visualization is superior to physical practice", "The extended nature of consciousness beyond individual boundaries", "That athletes are particularly susceptible to suggestion"], correctAnswer: "C", explanation: "The text explicitly states this demonstrates 'consciousness's extended nature' and that 'mind doesn't stop at the skull.'" },
+            { passageIndex: 3, type: 'Conclusion', text: "The final paragraph's tone regarding individual performance could best be described as:", options: ["Optimistic about human potential", "Cynical about achievement and success", "Philosophically provocative with mixed implications", "Scientifically neutral and objective"], correctAnswer: "C", explanation: "The final paragraph offers both 'liberation and vertigo,' presenting complex philosophical implications rather than a simple positive or negative view." }
+        ];
+
+        let currentQuestionIndex = 0;
+        let userAnswers = new Array(questions.length).fill(null);
+        let timerInterval;
+        let timeLeft = 9 * 60;
+        let examStartTime;
+        let examEndTime;
+        let userName = '';
+        let userGoal = '';
+        let userFocusArea = '';
+        let isReviewingFromResults = false;
+        let questionStartTime = null;
+        let questionTimes = new Array(questions.length).fill(0);
+        let flaggedQuestions = new Array(questions.length).fill(false);
+        let isFilteringFlagged = false;
+        let currentlyDisplayedPassageIndex = -1;
+        let currentFontSize = 1.0;
+
+        // --- Elements & Functions ---
+        const appContainer = document.getElementById('app-container');
+        const setupScreen = document.getElementById('setup-screen');
+        const examScreen = document.getElementById('exam-screen');
+        const reviewScreen = document.getElementById('review-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const navigatorModal = document.getElementById('navigator-modal');
+        const startButton = document.getElementById('start-button');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const navigatorButton = document.getElementById('navigator-button');
+        const closeModalButton = document.getElementById('close-modal-button');
+        const endExamButton = document.getElementById('end-exam-button');
+        const endExamButtonFooter = document.getElementById('end-exam-button-footer');
+        const backToResultsButton = document.getElementById('back-to-results-button');
+        const flagButton = document.getElementById('flag-button');
+        const passageNumberEl = document.getElementById('passage-number');
+        const passageTextEl = document.getElementById('passage-text');
+        const questionNumberEl = document.getElementById('question-number');
+        const questionNumberInfoEl = document.getElementById('question-number-info');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const timerEl = document.getElementById('timer');
+        const reviewGrid = document.getElementById('review-grid');
+        const navigatorGrid = document.getElementById('navigator-grid');
+        const scoreEl = document.getElementById('score');
+        const totalQuestionsResultsEl = document.getElementById('total-questions-results');
+        const timeTakenEl = document.getElementById('time-taken');
+        const resultsGridContainer = document.getElementById('results-grid-container');
+        const nameInput = document.getElementById('name');
+        const goalInput = document.getElementById('goal');
+        const focusAreaInput = document.getElementById('focus-area');
+        const examTitleEl = document.getElementById('exam-title');
+        const filterFlaggedButton = document.getElementById('filter-flagged-button');
+        const setupQuestionCountEl = document.getElementById('setup-question-count');
+        const setupTimeLimitEl = document.getElementById('setup-time-limit');
+        const reviewExplanationContainer = document.getElementById('review-explanation-container');
+        const downloadPdfButton = document.getElementById('download-pdf-button');
+        const fontDecreaseButton = document.getElementById('font-decrease-button');
+        const fontIncreaseButton = document.getElementById('font-increase-button');
+        const resizableTextElements = document.querySelectorAll('.resizable-text');
+        const timeAnalysisResultsEl = document.getElementById('time-analysis-results');
+        const typeAnalysisResultsEl = document.getElementById('type-analysis-results');
+
+        function startTimer() { examStartTime = new Date(); clearInterval(timerInterval); timerEl.textContent = formatTimeSeconds(timeLeft); timerInterval = setInterval(() => { timeLeft--; timerEl.textContent = formatTimeSeconds(timeLeft); if (timeLeft <= 0) { endExamAndShowResults(); } }, 1000); }
+        function stopTimer() { clearInterval(timerInterval); examEndTime = examEndTime || new Date(); }
+        function formatTimeSeconds(totalSeconds) { if (totalSeconds < 0) totalSeconds = 0; const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`; }
+        function formatTimeMilliseconds(milliseconds) { if (!milliseconds || milliseconds < 0) return "0s"; return `${(milliseconds / 1000).toFixed(1)}s`; }
+        function formatTimeDifference(milliseconds) { if (!milliseconds || milliseconds < 0) return "0 min 00 sec"; const totalSeconds = Math.round(milliseconds / 1000); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return `${minutes} min ${seconds < 10 ? '0' : ''}${seconds} sec`; }
+        function recordTimeSpent(index) { if (questionStartTime && index >= 0 && index < questions.length) { questionTimes[index] = (questionTimes[index] || 0) + (Date.now() - questionStartTime); } questionStartTime = null; }
+        function toggleFlag() { if (isReviewingFromResults) return; flaggedQuestions[currentQuestionIndex] = !flaggedQuestions[currentQuestionIndex]; updateFlagButtonAppearance(); updateNavigatorButtons(); }
+        function updateFlagButtonAppearance() { const isFlagged = flaggedQuestions[currentQuestionIndex]; flagButton.textContent = isFlagged ? 'Unflag' : 'Flag for Review'; flagButton.classList.toggle('flagged', isFlagged); }
+        function updateFontSize() { resizableTextElements.forEach(el => { el.querySelectorAll('#passage-text, #question-text, .option-label').forEach(child => { child.style.fontSize = `${currentFontSize}rem`; }); }); }
+        function loadQuestion(index, reviewMode = false) { if (index < 0 || index >= questions.length) return; if (!isReviewingFromResults && !reviewMode) { recordTimeSpent(currentQuestionIndex); } const question = questions[index]; const newPassageIndex = question.passageIndex; if (newPassageIndex !== currentlyDisplayedPassageIndex || reviewMode) { passageTextEl.innerHTML = passages[newPassageIndex].replace(/\n/g, '<br><br>'); passageNumberEl.textContent = newPassageIndex + 1; currentlyDisplayedPassageIndex = newPassageIndex; document.querySelector('.passage-column').scrollTop = 0; } currentQuestionIndex = index; isReviewingFromResults = reviewMode; questionNumberEl.textContent = index + 1; questionNumberInfoEl.textContent = `${index + 1} of ${questions.length}`; questionTextEl.textContent = question.text; document.querySelector('.question-column').scrollTop = 0; optionsContainer.innerHTML = ''; reviewExplanationContainer.innerHTML = ''; const optionLetters = question.options.length === 3 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D']; question.options.forEach((option, i) => { const optionId = `q${index}_opt${i}`; const label = document.createElement('label'); label.htmlFor = optionId; label.className = 'option-label'; label.dataset.optionIndex = i; const radio = document.createElement('input'); radio.type = 'radio'; radio.id = optionId; radio.name = `question_${index}`; radio.value = optionLetters[i]; radio.disabled = reviewMode; label.style.cursor = reviewMode ? 'default' : 'pointer'; if (userAnswers[index] === optionLetters[i]) { radio.checked = true; label.classList.add('selected-answer'); } if (reviewMode) { const isCorrectAnswer = question.correctAnswer === optionLetters[i]; const isSelectedAnswer = userAnswers[index] === optionLetters[i]; if (isCorrectAnswer) { label.classList.add('border-green-500', 'border-2', 'bg-green-50'); } else if (isSelectedAnswer) { label.classList.add('border-red-500', 'border-2', 'bg-red-50'); } } label.appendChild(radio); label.appendChild(document.createTextNode(question.type === 'True/False/CantTell' ? ` ${option}` : ` ${optionLetters[i]}) ${option}`)); if (!reviewMode) { label.addEventListener('click', () => handleOptionSelect(index, i, optionLetters[i])); radio.addEventListener('change', () => handleOptionSelect(index, i, optionLetters[i])); } optionsContainer.appendChild(label); }); if (reviewMode && question.explanation) { const explanationDiv = document.createElement('div'); explanationDiv.className = 'explanation-box'; explanationDiv.innerHTML = `<strong class="font-semibold">Explanation:</strong><br>${question.explanation.replace(/\n/g, '<br>')}`; reviewExplanationContainer.appendChild(explanationDiv); } prevButton.disabled = index === 0; nextButton.textContent = (!reviewMode && index === questions.length - 1) ? 'Finish & Review' : 'Next (Alt+N) →'; if(reviewMode) nextButton.disabled = index === questions.length - 1; updateFlagButtonAppearance(); backToResultsButton.classList.toggle('hidden', !reviewMode); endExamButtonFooter.classList.toggle('hidden', reviewMode); examTitleEl.textContent = reviewMode ? "Reviewing Question" : "Verbal Reasoning"; flagButton.disabled = reviewMode; updateNavigatorHighlight(); updateFontSize(); if (!isReviewingFromResults) { questionStartTime = Date.now(); } }
+        function handleOptionSelect(questionIndex, optionIndex, optionValue) { if (questionIndex !== currentQuestionIndex || isReviewingFromResults) return; userAnswers[questionIndex] = optionValue; document.querySelectorAll(`#options-container .option-label`).forEach(lbl => lbl.classList.remove('selected-answer')); const selectedLabel = document.querySelector(`#options-container label[for="q${questionIndex}_opt${optionIndex}"]`); if (selectedLabel) { selectedLabel.classList.add('selected-answer'); selectedLabel.querySelector('input[type="radio"]').checked = true; } updateNavigatorButtons(); }
+        function showNextQuestion() { const reviewMode = isReviewingFromResults; const nextIndex = currentQuestionIndex + 1; if (nextIndex < questions.length) { loadQuestion(nextIndex, reviewMode); } else if (!reviewMode) { recordTimeSpent(currentQuestionIndex); stopTimer(); showReviewScreen(); } }
+        function showPrevQuestion() { if (currentQuestionIndex > 0) { loadQuestion(currentQuestionIndex - 1, isReviewingFromResults); } }
+        function showScreen(screenToShow) { [setupScreen, examScreen, reviewScreen, resultsScreen].forEach(screen => { screen.classList.add('hidden'); screen.classList.remove('flex'); }); screenToShow.classList.remove('hidden'); if (screenToShow !== examScreen) appContainer.classList.remove('!border-none', '!shadow-none', '!m-0', '!rounded-none'); else appContainer.classList.add('!border-none', '!shadow-none', '!m-0', '!rounded-none'); if (screenToShow === setupScreen || screenToShow === resultsScreen) { screenToShow.classList.add('flex'); } }
+        function showReviewScreen(filterFlagged = false) { recordTimeSpent(currentQuestionIndex); stopTimer(); showScreen(reviewScreen); reviewScreen.classList.add('flex'); reviewGrid.innerHTML = ''; questions.forEach((_, index) => { if (filterFlagged && !flaggedQuestions[index]) return; const button = document.createElement('button'); button.textContent = index + 1; button.className = 'review-grid-button'; button.classList.toggle('review-grid-button-answered', userAnswers[index] !== null); button.classList.toggle('review-grid-button-unanswered', userAnswers[index] === null); if (flaggedQuestions[index]) button.classList.add('review-flagged'); button.onclick = () => { showScreen(examScreen); examScreen.classList.add('flex'); loadQuestion(index); startTimer(); }; reviewGrid.appendChild(button); }); filterFlaggedButton.textContent = filterFlagged ? 'Show All Questions' : 'Show Flagged Only'; }
+        function populateNavigator() { navigatorGrid.innerHTML = ''; questions.forEach((_, index) => { const button = document.createElement('button'); button.textContent = index + 1; button.className = 'py-2 px-1 border border-gray-300 rounded-md text-center transition duration-150 ease-in-out text-sm hover:bg-gray-100'; button.dataset.questionIndex = index; if (userAnswers[index]) button.classList.add('nav-answered'); if (index === currentQuestionIndex) button.classList.add('nav-current'); if (flaggedQuestions[index]) button.classList.add('nav-flagged'); button.onclick = () => { navigatorModal.classList.remove('flex'); loadQuestion(parseInt(button.dataset.questionIndex, 10), isReviewingFromResults); if (!isReviewingFromResults) questionStartTime = Date.now(); }; navigatorGrid.appendChild(button); }); }
+        function updateNavigatorButtons() { navigatorGrid.querySelectorAll('button').forEach(button => { const index = parseInt(button.dataset.questionIndex, 10); button.classList.toggle('nav-answered', !!userAnswers[index]); button.classList.toggle('nav-current', index === currentQuestionIndex); button.classList.toggle('nav-flagged', flaggedQuestions[index]); }); }
+        function updateNavigatorHighlight() { navigatorGrid.querySelectorAll('button').forEach(button => { button.classList.toggle('nav-current', parseInt(button.dataset.questionIndex, 10) === currentQuestionIndex); }); }
+        function analyzeAndDisplayPerformance() { let correctTimeTotal = 0, correctCount = 0, incorrectTimeTotal = 0, incorrectCount = 0; const typeStats = {}; questions.forEach((q, i) => { const isCorrect = userAnswers[i] === q.correctAnswer; if (userAnswers[i] !== null) { (isCorrect ? (correctTimeTotal += questionTimes[i], correctCount++) : (incorrectTimeTotal += questionTimes[i], incorrectCount++)); } const qType = q.type || 'Uncategorized'; if (!typeStats[qType]) typeStats[qType] = { correct: 0, total: 0 }; typeStats[qType].total++; if(isCorrect) typeStats[qType].correct++; }); timeAnalysisResultsEl.innerHTML = `<p class="flex justify-between"><span>Avg. time (Correct):</span> <span class="font-bold text-green-600">${correctCount > 0 ? formatTimeMilliseconds(correctTimeTotal / correctCount) : 'N/A'}</span></p><p class="flex justify-between"><span>Avg. time (Incorrect):</span> <span class="font-bold text-red-600">${incorrectCount > 0 ? formatTimeMilliseconds(incorrectTimeTotal / incorrectCount) : 'N/A'}</span></p>`; typeAnalysisResultsEl.innerHTML = ''; Object.keys(typeStats).sort().forEach(type => { const stats = typeStats[type]; const percentage = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0; typeAnalysisResultsEl.innerHTML += `<p class="flex justify-between"><span>${type}:</span> <span class="font-bold">${stats.correct}/${stats.total} (${percentage}%)</span></p>`; }); }
+        function showResultsScreen() { examEndTime = examEndTime || new Date(); recordTimeSpent(currentQuestionIndex); stopTimer(); showScreen(resultsScreen); let score = 0; resultsGridContainer.innerHTML = ''; questions.forEach((qData, index) => { const isCorrect = userAnswers[index] === qData.correctAnswer; if (isCorrect) score++; const container = document.createElement('div'); const resultBox = document.createElement('div'); resultBox.className = 'result-box'; resultBox.classList.add(isCorrect ? 'result-box-correct' : 'result-box-incorrect'); if (flaggedQuestions[index]) resultBox.classList.add('result-box-flagged'); resultBox.title = `Click to review Question ${index + 1}`; const timeDiv = document.createElement('div'); timeDiv.className = 'time-spent'; timeDiv.textContent = `${Math.round((questionTimes[index] || 0) / 1000)}s`; resultBox.appendChild(timeDiv); container.appendChild(resultBox); const qNumDiv = document.createElement('div'); qNumDiv.className = 'question-num-label'; qNumDiv.textContent = `Q${index + 1}`; container.appendChild(qNumDiv); container.addEventListener('click', () => revisitQuestionFromResults(index)); resultsGridContainer.appendChild(container); }); scoreEl.textContent = score; totalQuestionsResultsEl.textContent = questions.length; timeTakenEl.textContent = formatTimeDifference(examEndTime - examStartTime); analyzeAndDisplayPerformance(); }
+        function revisitQuestionFromResults(index) { showScreen(examScreen); examScreen.classList.add('flex'); loadQuestion(index, true); }
+        function endExamAndShowResults() { stopTimer(); showResultsScreen(); }
+        function generatePDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); let y = 15; const lineHeight = 7; const margin = 15; const pageWidth = doc.internal.pageSize.width; doc.setFontSize(18); doc.text("UCAT Verbal Reasoning Results", pageWidth / 2, y, { align: 'center' }); y += lineHeight * 2; doc.setFontSize(12); const summaryData = [ ["Name:", userName || 'N/A'], ["Goal:", `${userGoal || 'N/A'} / ${questions.length}`], ["Focus Area:", userFocusArea || 'N/A'], ["Final Score:", `${scoreEl.textContent} / ${questions.length}`], ["Time Taken:", timeTakenEl.textContent] ]; summaryData.forEach(row => { doc.setFont(undefined, 'bold'); doc.text(row[0], margin, y); doc.setFont(undefined, 'normal'); doc.text(row[1], margin + 40, y); y += lineHeight; }); y += lineHeight; doc.save(`ucat_vr_results_${userName.replace(/\s+/g, '_') || 'user'}.pdf`); }
+        
+        // --- Event Listeners ---
+        startButton.addEventListener('click', () => { userName = nameInput.value.trim(); userGoal = goalInput.value.trim(); userFocusArea = focusAreaInput.value.trim(); timeLeft = 9 * 60; showScreen(examScreen); examScreen.classList.add('flex'); startTimer(); loadQuestion(0); populateNavigator(); });
+        nextButton.addEventListener('click', showNextQuestion);
+        prevButton.addEventListener('click', showPrevQuestion);
+        endExamButton.addEventListener('click', endExamAndShowResults);
+        endExamButtonFooter.addEventListener('click', () => { recordTimeSpent(currentQuestionIndex); stopTimer(); showReviewScreen(); });
+        backToResultsButton.addEventListener('click', () => { isReviewingFromResults = false; showResultsScreen(); });
+        navigatorButton.addEventListener('click', () => { recordTimeSpent(currentQuestionIndex); updateNavigatorButtons(); navigatorModal.classList.add('flex'); });
+        closeModalButton.addEventListener('click', () => { navigatorModal.classList.remove('flex'); if (!isReviewingFromResults) questionStartTime = Date.now(); });
+        navigatorModal.addEventListener('click', (event) => { if (event.target === navigatorModal) closeModalButton.click(); });
+        flagButton.addEventListener('click', toggleFlag);
+        filterFlaggedButton.addEventListener('click', () => { isFilteringFlagged = !isFilteringFlagged; showReviewScreen(isFilteringFlagged); });
+        downloadPdfButton.addEventListener('click', generatePDF);
+        fontIncreaseButton.addEventListener('click', () => { if(currentFontSize < 1.5) { currentFontSize += 0.1; updateFontSize(); } });
+        fontDecreaseButton.addEventListener('click', () => { if (currentFontSize > 0.8) { currentFontSize -= 0.1; updateFontSize(); } });
+
+        document.addEventListener('keydown', (e) => {
+             const isExamVisible = !examScreen.classList.contains('hidden');
+             const isModalVisible = navigatorModal.classList.contains('flex');
+             const isInputFocused = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+             if (isModalVisible || isInputFocused || !isExamVisible) return;
+             if (e.altKey) {
+                 if (e.code.toLowerCase() === 'keyn') { e.preventDefault(); if (!nextButton.disabled) nextButton.click(); }
+                 if (e.code.toLowerCase() === 'keyp') { e.preventDefault(); if (!prevButton.disabled) prevButton.click(); }
+                 if (e.code.toLowerCase() === 'keyf') { e.preventDefault(); if (!isReviewingFromResults && !flagButton.disabled) flagButton.click(); }
+             } else if (['a', 'b', 'c', 'd'].includes(e.key.toLowerCase()) && !isReviewingFromResults) {
+                 e.preventDefault();
+                 const optionIndex = ['a', 'b', 'c', 'd'].indexOf(e.key.toLowerCase());
+                 if (optionIndex < questions[currentQuestionIndex].options.length) {
+                     handleOptionSelect(currentQuestionIndex, optionIndex, ['A', 'B', 'C', 'D'][optionIndex]);
+                 }
+             }
+        });
+
+        // --- Initial Load ---
+        showScreen(setupScreen);
+        updateFontSize();
+
+    </script>
+</body>
+</html>
